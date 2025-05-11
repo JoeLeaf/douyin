@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import WebSocket from 'ws'; // 引入 WebSocket 客户端库
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,9 +42,45 @@ function createWebviewWindow(url: string) {
   // 拦截请求
   const { webRequest } = webviewWindow.webContents.session;
 
-  webRequest.onBeforeRequest((details, callback) => {
-    console.log('请求地址： ' ,details.url);
-    callback({ cancel: false }); // 不取消请求
+  webRequest.onBeforeSendHeaders((details, callback) => {
+    if (details.url.startsWith('wss://')) {
+      console.log('拦截到 wss 请求:', details.url);
+
+      // 使用 WebSocket 客户端手动连接，添加拦截到的请求头
+      const ws = new WebSocket(details.url, {
+        headers: details.requestHeaders, // 使用拦截到的原始请求头
+      });
+
+      ws.binaryType = 'arraybuffer'; // 确保以二进制模式工作
+
+      ws.on('open', () => {
+        console.log('WebSocket 连接已建立:', details.url);
+        ws.send(Buffer.from('3a026862', 'hex')); // 发送二进制数据
+      });
+
+      ws.on('message', (data: WebSocket.RawData) => {
+        if (data instanceof ArrayBuffer) {
+          const buffer = Buffer.from(data);
+          console.log('收到 WebSocket 消息 (二进制):', buffer.toString('hex'));
+        } else if (Buffer.isBuffer(data)) {
+          console.log('收到 WebSocket 消息 (二进制):', data.toString('hex'));
+        } else {
+          console.log('收到 WebSocket 消息 (文本):', data.toString());
+        }
+      });
+
+      ws.on('close', () => {
+        console.log('WebSocket 连接已关闭:', details.url);
+      });
+
+      ws.on('error', (error: Error) => {
+        console.error('WebSocket 错误:', error);
+      });
+      webviewWindow?.close();
+
+      return callback({ cancel: true }); 
+    }
+    callback({ cancel: false }); // 不取消其他请求
   });
 
 }
