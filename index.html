@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>抖音直播请求拦截器</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    input {
+      width: 70%;
+      padding: 8px;
+      margin-right: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>抖音直播请求拦截器</h2>
+  <input id="url-input" type="text" value="https://live.douyin.com/80017709309" />
+  <button id="start-btn">开始拦截</button>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      const url = document.getElementById('url-input').value;
+      ipcRenderer.invoke('start-intercept', url); // 通知主进程
+    });
+  </script>
+</body>
+
+</html>

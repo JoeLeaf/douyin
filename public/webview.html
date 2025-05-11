@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>抖音直播 - 请求拦截中</title>
+    <style>
+        webview {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <webview id="dy-webview" partition="persist:dy-webview"></webview>
+
+    <script>
+          window.electronAPI.loadWebview((url) => {
+                document.getElementById('dy-webview').src = url;
+            });
+    </script>
+</body>
+
+</html>
