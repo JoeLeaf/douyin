@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import WebSocket from 'ws'; // 引入 WebSocket 客户端库
 import protobuf from 'protobufjs';
 import fs from 'fs';
+import zlib from 'zlib';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,31 +69,47 @@ function createWebviewWindow(url: string) {
 
       ws.on('open', () => {
         console.log('WebSocket 连接已建立:', details.url);
-        ws.send(Buffer.from('3a026862', 'hex'));
+        setInterval(() => {
+          ws.send(Buffer.from('3a026862', 'hex'));
+        }, 10*1000);
       });
 
       ws.on('message', (data: WebSocket.RawData) => {
         if (data instanceof ArrayBuffer) {
           const buffer = Buffer.from(data);
-          console.log('收到 WebSocket 消息 (二进制):', buffer.toString('hex'));
-
-          // 解码 proto 消息
           if (root) {
             try {
-              const Response = root.lookupType('douyin.Response');
+              const Response = root.lookupType('douyin.PushFrame');
               const decodedMessage = Response.decode(buffer);
-              console.log('解码后的消息:', JSON.stringify(decodedMessage, null, 2));
+              //这里忘记了是那个值判断是否可以解密了，你看着来
+              try {
+                const payload=Buffer.from(decodedMessage.payload, 'base64');
+                const decompressed = zlib.gunzipSync(payload);
+                const ResponseMsg = root.lookupType('douyin.Response'); 
+                const message2 = ResponseMsg.decode(decompressed);
+                // console.log('解码后的消息:', JSON.stringify(message2, null, 2));
+                const messagesList = message2.messagesList;
+                switch (messagesList.method) {
+                  case "WebcastChatMessage":
+                    const ChatMessage = root.lookupType('douyin.ChatMessage'); 
+                    ChatMessage.decode(Buffer.from(messagesList.payload, 'base64'));
+                    console.log(ChatMessage);
+                    break;
+                
+                  default:
+                    break;
+                }
+              } catch (error) {
+                
+              }
+
             } catch (decodeError) {
               console.error('解码 proto 消息失败:', decodeError);
             }
           } else {
             console.error('Proto 文件尚未加载，无法解码消息');
           }
-        } else if (Buffer.isBuffer(data)) {
-          console.log('收到 WebSocket 消息 (二进制):', data.toString('hex'));
-        } else {
-          console.log('收到 WebSocket 消息 (文本):', data.toString());
-        }
+        } 
       });
 
       ws.on('close', () => {
@@ -103,7 +120,6 @@ function createWebviewWindow(url: string) {
         console.error('WebSocket 错误:', error);
       });
       webviewWindow?.close();
-
       return callback({ cancel: true }); 
     }
     callback({ cancel: false }); // 不取消其他请求

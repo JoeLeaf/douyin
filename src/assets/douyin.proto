@@ -1,6 +1,5 @@
 syntax = "proto3";
 package douyin;
-
 message Response {
   repeated Message messagesList = 1;
   string cursor = 2;

@@ -8502,27 +8502,40 @@ function createWebviewWindow(url) {
       ws.binaryType = "arraybuffer";
       ws.on("open", () => {
         console.log("WebSocket 连接已建立:", details.url);
-        ws.send(Buffer.from("3a026862", "hex"));
+        setInterval(() => {
+          ws.send(Buffer.from("3a026862", "hex"));
+        }, 10 * 1e3);
       });
       ws.on("message", (data) => {
         if (data instanceof ArrayBuffer) {
           const buffer = Buffer.from(data);
-          console.log("收到 WebSocket 消息 (二进制):", buffer.toString("hex"));
           if (root) {
             try {
-              const Response = root.lookupType("douyin.Response");
+              const Response = root.lookupType("douyin.PushFrame");
               const decodedMessage = Response.decode(buffer);
-              console.log("解码后的消息:", JSON.stringify(decodedMessage, null, 2));
+              try {
+                const payload = Buffer.from(decodedMessage.payload, "base64");
+                const decompressed = require$$0$1.gunzipSync(payload);
+                const ResponseMsg = root.lookupType("douyin.Response");
+                const message2 = ResponseMsg.decode(decompressed);
+                const messagesList = message2.messagesList;
+                switch (messagesList.method) {
+                  case "WebcastChatMessage":
+                    const ChatMessage = root.lookupType("douyin.ChatMessage");
+                    ChatMessage.decode(Buffer.from(messagesList.payload, "base64"));
+                    console.log(ChatMessage);
+                    break;
+                  default:
+                    break;
+                }
+              } catch (error) {
+              }
             } catch (decodeError) {
               console.error("解码 proto 消息失败:", decodeError);
             }
           } else {
             console.error("Proto 文件尚未加载，无法解码消息");
           }
-        } else if (Buffer.isBuffer(data)) {
-          console.log("收到 WebSocket 消息 (二进制):", data.toString("hex"));
-        } else {
-          console.log("收到 WebSocket 消息 (文本):", data.toString());
         }
       });
       ws.on("close", () => {
